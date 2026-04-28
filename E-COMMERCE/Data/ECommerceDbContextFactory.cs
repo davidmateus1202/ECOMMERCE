@@ -1,0 +1,26 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
+
+namespace ECommerce.Data
+{
+    public class ECommerceDbContextFactory : IDesignTimeDbContextFactory<ECommerceDbContext>
+    {
+        public ECommerceDbContext CreateDbContext(string[] args)
+        {
+            var basePath = Directory.GetCurrentDirectory();
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(basePath)
+                .AddJsonFile("appsettings.json", optional: false)
+                .AddJsonFile("appsettings.Development.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var optionsBuilder = new DbContextOptionsBuilder<ECommerceDbContext>();
+            optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+
+            return new ECommerceDbContext(optionsBuilder.Options);
+        }
+    }
+}
