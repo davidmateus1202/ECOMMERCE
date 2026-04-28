@@ -3,6 +3,7 @@ using ECommerce.Services;
 using ECommerce.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -24,9 +25,23 @@ var jwtAudience = builder.Configuration["JwtConfig:Audience"]
 var jwtKey = builder.Configuration["JwtConfig:key"]
     ?? throw new InvalidOperationException("Missing JwtConfig:key.");
 
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()
+    ?? [];
+
+var enableHttpsRedirection = builder.Configuration.GetValue("HttpsRedirection:Enabled", builder.Environment.IsDevelopment());
+
 builder.Services.AddDbContext<ECommerceDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
 );
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // autentiacion jwt service
 builder.Services.AddAuthentication(options =>
@@ -56,6 +71,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
+        if (allowedOrigins.Length > 0)
+        {
+            policy
+                .WithOrigins(allowedOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+            return;
+        }
+
         policy
             .WithOrigins(
                 "http://localhost:5173",
@@ -78,8 +102,10 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseForwardedHeaders();
+
 var httpsPort = builder.Configuration.GetValue<int?>("HttpsRedirection:HttpsPort");
-if (!app.Environment.IsDevelopment() || httpsPort.HasValue)
+if (enableHttpsRedirection && (httpsPort.HasValue || app.Environment.IsDevelopment()))
 {
     app.UseHttpsRedirection();
 }

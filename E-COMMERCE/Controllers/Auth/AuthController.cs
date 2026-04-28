@@ -17,19 +17,22 @@ namespace ECommerce.Controllers.Auth
         private readonly PasswordHasher<User> _passwordHasher;
         private readonly IWebHostEnvironment _environment;
         private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
 
         public AuthController(
             JwtService jwtService,
             ECommerceDbContext dbContext,
             PasswordHasher<User> passwordHasher,
             IWebHostEnvironment environment,
-            IEmailService emailService)
+            IEmailService emailService,
+            IConfiguration configuration)
         {
             _jwtService = jwtService;
             _dbContext = dbContext;
             _passwordHasher = passwordHasher;
             _environment = environment;
             _emailService = emailService;
+            _configuration = configuration;
         }
 
         // POST: api/auth/login
@@ -97,8 +100,9 @@ namespace ECommerce.Controllers.Auth
             user.ResetTokenExpires = DateTime.Now.AddHours(1);
             await _dbContext.SaveChangesAsync();
 
-            // Replace with your frontend URL
-            var resetLink = $"http://localhost:5173/reset-password?token={token}";
+            var frontendBaseUrl = _configuration["Frontend:BaseUrl"]?.TrimEnd('/')
+                ?? "http://localhost:5173";
+            var resetLink = $"{frontendBaseUrl}/reset-password?token={token}";
 
             var emailBody = $@"
 <!DOCTYPE html>
